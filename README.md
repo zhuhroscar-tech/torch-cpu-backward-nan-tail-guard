@@ -134,6 +134,13 @@ runners.
 - Verified on CPU only (the upstream issue is CPU-specific; the
   vectorized/scalar kernel split doesn't apply to CUDA, whose kernels
   already use the scalar form per the issue).
+- The exact tensor length at which the divergence appears depends on
+  the host CPU's SIMD vector width (8 lanes for float32/NEON on Apple
+  Silicon; 8 or 16 lanes for AVX2/AVX-512 on x86) — confirmed to differ
+  between this project's own macOS (arm64/NEON) and Linux (x86) CI
+  runners. `diagnose()` and the CLI scan multiple lengths (9, 17, 33)
+  specifically so at least one reliably lands past the runner's actual
+  vector-block boundary regardless of architecture.
 
 ---
 

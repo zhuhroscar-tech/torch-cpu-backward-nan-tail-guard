@@ -210,22 +210,41 @@ def test_safe_logit_backward_is_length_independent_at_nan(length):
 
 def test_unguarded_hardtanh_backward_is_length_dependent_at_nan_on_this_host():
     """This is the ACTUAL upstream bug (pytorch/pytorch#195075), reproduced
-    with real torch.nn.functional + autograd -- no guard involved. If this
-    ever starts failing (i.e. first == last, or both non-NaN and equal), it
-    means upstream PyTorch has silently fixed the length dependence, which
-    should be investigated and reflected in this test/README, not silenced."""
-    x = torch.full((9,), float("nan"), requires_grad=True)
-    F.hardtanh(x).sum().backward()
-    first, last = x.grad[0].item(), x.grad[8].item()
-    # The documented bug: grad[0]=0.0 (vector block), grad[8]=1.0 (scalar
-    # tail) -- i.e. NOT the same value, and not both NaN.
-    assert not (math.isnan(first) and math.isnan(last))
-    assert first != last, (
+    with real torch.nn.functional + autograd -- no guard involved.
+
+    The divergence is a function of tensor length vs. THIS CPU's SIMD
+    vector-block width, which varies by architecture (8 lanes for
+    float32/NEON on Apple Silicon; 8 or 16 for AVX2/AVX-512 on x86 --
+    confirmed by this project's own CI: length 9 reproduces the bug on
+    an arm64/NEON host but NOT on an x86 ubuntu-latest runner with a
+    wider vector width, where length 9 has no full vector block at
+    all). So this test scans a range of lengths spanning every common
+    SIMD width (8, 16, 32, 64 lanes) and requires AT LEAST ONE to show
+    the divergence, rather than assuming a single fixed length that
+    happens to work on one architecture.
+
+    If this ever fails across the ENTIRE scanned range on a given
+    architecture, it means upstream PyTorch has silently fixed the
+    length dependence there, which should be investigated and
+    reflected in this test/README, not silenced."""
+    found_divergence = False
+    for length in (9, 17, 33, 65):
+        x = torch.full((length,), float("nan"), requires_grad=True)
+        F.hardtanh(x).sum().backward()
+        first, last = x.grad[0].item(), x.grad[-1].item()
+        both_nan = math.isnan(first) and math.isnan(last)
+        if not both_nan and first != last:
+            found_divergence = True
+            break
+
+    assert found_divergence, (
         "Expected the documented length-dependent divergence "
-        "(pytorch/pytorch#195075) on this host's torch build; if this "
-        "assertion now fails, the upstream bug is fixed on this host -- "
-        "verify against the currently installed torch version and update "
-        "this test/README rather than deleting the assertion."
+        "(pytorch/pytorch#195075) at at least one of lengths (9, 17, 33, "
+        "65) spanning common SIMD widths (8/16/32/64 lanes) on this "
+        "host's torch build; if this assertion now fails, the upstream "
+        "bug may be fixed on this host's architecture -- verify against "
+        "the currently installed torch version and update this "
+        "test/README rather than deleting the assertion."
     )
 
 
