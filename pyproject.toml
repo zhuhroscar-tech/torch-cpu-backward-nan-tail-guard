@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torch-cpu-backward-nan-tail-guard"
+version = "0.1.0"
+description = "Detect and guard against seven CPU backward kernels (logit_backward, hardtanh_backward, hardshrink/softshrink shrink_backward, elu/celu elu_backward, hardswish_backward) returning a DIFFERENT gradient at NaN depending purely on tensor length vs SIMD vector-block width (pytorch/pytorch#195075)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "zhuhroscar-tech" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+torch = ["torch>=2.0"]
+
+[project.scripts]
+torch-cpu-backward-nan-tail-guard = "torch_cpu_backward_nan_tail_guard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
